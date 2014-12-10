@@ -65,3 +65,5 @@ cscope.*
 /onenand_ipl/onenand-ipl*
 /onenand_ipl/board/*/onenand*
 /onenand_ipl/board/*/*.S
+
+!onenand_ipl/board/apollon/low_levelinit.S
