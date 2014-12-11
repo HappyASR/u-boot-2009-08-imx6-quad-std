@@ -130,9 +130,13 @@
 	"bootargs_mmc=setenv bootargs ${bootargs} ip=dhcp "		\
 		"root=/dev/mmcblk0p1 rootwait\0"			\
 	"bootcmd_mmc=run bootargs_base bootargs_mmc; "			\
-	"mmc dev 3; "							\
+	"mmc dev 2; "							\
 	"mmc read ${loadaddr} 0x800 0x2000; bootm\0"			\
-	"bootcmd=run bootcmd_net\0"					\
+	"bootcmd=run bootcmd_mmc\0"					\
+	"update_uboot=tftpboot ${loadaddr} u-boot.bin; sf probe 1; sf erase 0 0x80000; sf write ${loadaddr} 0 0x80000\0"	  \
+	"splashimage=0x30000000\0"	\
+	"splashpos=m,m\0"	\
+	"lvds_num=1\0"
 
 
 #define CONFIG_ARP_TIMEOUT		200UL
@@ -145,8 +149,8 @@
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size */
 /* Print Buffer Size */
-#define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE + sizeof(CONFIG_SYS_PROMPT) + 16)
-#define CONFIG_SYS_MAXARGS		16	/* max number of command args */
+#define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE + sizeof(CONFIG_SYS_PROMPT) + 128)
+#define CONFIG_SYS_MAXARGS		128	/* max number of command args */
 #define CONFIG_SYS_BARGSIZE CONFIG_SYS_CBSIZE   /* Boot Argument Buffer Size */
 
 #define CONFIG_SYS_MEMTEST_START	0x10000000	/* memtest works on */
@@ -159,20 +163,26 @@
 #define CONFIG_SYS_HZ			1000
 
 #define CONFIG_CMDLINE_EDITING
+#define CONFIG_SYS_HUSH_PARSER		1 /* Use the HUSH parser */
+#ifdef	CONFIG_SYS_HUSH_PARSER
+#define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+#endif
 
+#define CONFIG_ENET_RMII
 #define CONFIG_FEC0_IOBASE		ENET_BASE_ADDR
 #define CONFIG_FEC0_PINMUX		-1
 #define CONFIG_FEC0_MIIBASE		-1
 #define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
 #define CONFIG_MXC_FEC
-#define CONFIG_FEC0_PHY_ADDR		1
+#define CONFIG_FEC0_PHY_ADDR		0xFF
+#define CONFIG_DISCOVER_PHY
 #define CONFIG_ETH_PRIME
 #define CONFIG_RMII
 #define CONFIG_CMD_MII
 #define CONFIG_CMD_DHCP
 #define CONFIG_CMD_PING
-#define CONFIG_IPADDR			192.168.1.103
-#define CONFIG_SERVERIP			192.168.1.101
+#define CONFIG_IPADDR			192.168.2.103
+#define CONFIG_SERVERIP			192.168.2.101
 #define CONFIG_NETMASK			255.255.255.0
 
 /*
@@ -201,9 +211,10 @@
  * SPI Configs
  */
 #ifdef CONFIG_CMD_SF
-	#define CONFIG_FSL_SF
-	#define CONFIG_SPI_FLASH_IMX_M25PXX
-	#define CONFIG_SPI_FLASH_CS		0
+	#define CONFIG_FSL_SF		1
+//	#define CONFIG_SPI_FLASH_IMX_M25PXX
+	#define CONFIG_SPI_FLASH_IMX_SST	1
+	#define CONFIG_SPI_FLASH_CS		1
 	#define CONFIG_IMX_ECSPI
 	#define IMX_CSPI_VER_2_3		1
 	#define MAX_SPI_BYTES			(64 * 4)
@@ -223,12 +234,12 @@
 	#define CONFIG_MMC
 	#define CONFIG_GENERIC_MMC
 	#define CONFIG_IMX_MMC
-	#define CONFIG_SYS_FSL_USDHC_NUM        4
+	#define CONFIG_SYS_FSL_USDHC_NUM        3
 	#define CONFIG_SYS_FSL_ESDHC_ADDR       0
 	#define CONFIG_SYS_MMC_ENV_DEV		2
-	#define CONFIG_DOS_PARTITION
-	#define CONFIG_CMD_FAT
-	#define CONFIG_CMD_EXT2
+	#define CONFIG_DOS_PARTITION	1
+	#define CONFIG_CMD_FAT		1
+	#define CONFIG_CMD_EXT2		1
 
 	/* detect whether SD1, 2, 3, or 4 is boot device */
 	#define CONFIG_DYNAMIC_MMC_DEVNO
@@ -284,7 +295,7 @@
 #define CONFIG_SYS_NO_FLASH
 
 /* Monitor at beginning of flash */
-#define CONFIG_FSL_ENV_IN_MMC
+#define CONFIG_FSL_ENV_IN_SF
 /* #define CONFIG_FSL_ENV_IN_NAND */
 
 #define CONFIG_ENV_SECT_SIZE    (8 * 1024)
@@ -310,7 +321,7 @@
 /*
  * SPLASH SCREEN Configs
  */
-#define CONFIG_SPLASH_SCREEN
+//#define CONFIG_SPLASH_SCREEN
 #ifdef CONFIG_SPLASH_SCREEN
 	/*
 	 * Framebuffer and LCD

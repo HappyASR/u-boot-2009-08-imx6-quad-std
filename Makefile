@@ -21,9 +21,18 @@
 # MA 02111-1307 USA
 #
 
-VERSION = 2009
-PATCHLEVEL = 08
-SUBLEVEL =
+#make distclean
+#make mx6q_sabresd_config
+#make
+#
+#
+#
+#
+#
+
+VERSION = 2014
+PATCHLEVEL = 11
+SUBLEVEL = 0
 EXTRAVERSION =
 ifneq "$(SUBLEVEL)" ""
 U_BOOT_VERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
@@ -115,6 +124,9 @@ ifneq ($(OBJTREE),$(SRCTREE))
 REMOTE_BUILD	:= 1
 export REMOTE_BUILD
 endif
+
+ARCH := arm
+CROSS_COMPILE := arm-none-linux-gnueabi-
 
 # $(obj) and (src) are defined in config.mk but here in main Makefile
 # we also need them before config.mk is included which is the case for

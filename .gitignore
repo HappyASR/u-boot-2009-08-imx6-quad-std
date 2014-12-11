@@ -15,6 +15,7 @@
 *.patch
 *.swp
 
+.project
 #
 # Top-level generic files
 #

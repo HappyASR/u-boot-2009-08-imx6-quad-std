@@ -87,13 +87,15 @@
 #include <ahci.h>
 #endif
 
+
 DECLARE_GLOBAL_DATA_PTR;
 
 static enum boot_device boot_dev;
 
 #define GPIO_VOL_DN_KEY IMX_GPIO_NR(1, 5)
 #define USB_OTG_PWR IMX_GPIO_NR(3, 22)
-#define USB_H1_POWER IMX_GPIO_NR(1, 29)
+#define USB_H1_POWER IMX_GPIO_NR(7, 0)
+#define FEC_PHY_RESET IMX_GPIO_NR(1, 23)
 
 extern int sata_curr_device;
 
@@ -123,7 +125,7 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 			int di_clk_val);
 
 static struct fb_videomode lvds_xga = {
-	 "XGA", 60, 1024, 768, 15385, 220, 40, 21, 7, 60, 10,
+	 "XGA", 60, 1024, 600, 15385, 220, 40, 21, 7, 60, 10,
 	 FB_SYNC_EXT,
 	 FB_VMODE_NONINTERLACED,
 	 0,
@@ -348,6 +350,35 @@ static int setup_sata(void)
 	return 0;
 }
 
+#if defined(CONFIG_ENET_RMII) && !defined(CONFIG_DWC_AHSATA)
+#define ANATOP_FEC_PLL_ENABLE_MASK      0x00002000
+static int setup_fec(void)
+{
+	u32 reg = 0;
+	s32 timeout = 100000;
+
+	/* Enable PLLs */
+	reg = readl(ANATOP_BASE_ADDR + 0xe0); /* ENET PLL */
+	if ((reg & ANATOP_PLL_PWDN_MASK) || (!(reg & ANATOP_PLL_LOCK))) {
+		reg &= ~ANATOP_PLL_PWDN_MASK;
+		writel(reg, ANATOP_BASE_ADDR + 0xe0);
+		while (timeout--) {
+			if (readl(ANATOP_BASE_ADDR + 0xe0) & ANATOP_PLL_LOCK)
+				break;
+			}
+			if (timeout <= 0)
+				return -1;
+	}
+
+	/* Enable FEC clock */
+	reg |= ANATOP_FEC_PLL_ENABLE_MASK;  //reg &= ~ANATOP_FEC_PLL_ENABLE_MASK;
+	reg &= ~ANATOP_PLL_BYPASS_MASK;
+	writel(reg, ANATOP_BASE_ADDR + 0xe0);
+
+	return 0;
+}
+#endif
+
 int dram_init(void)
 {
 	/*
@@ -387,7 +418,7 @@ void setup_lvds_poweron(void)
 {
 	int reg;
 	/* AUX_5V_EN: GPIO(6, 10) */
-#ifdef CONFIG_MX6DL
+/*#ifdef CONFIG_MX6DL
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_RB0__GPIO_6_10);
 #else
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_RB0__GPIO_6_10);
@@ -399,18 +430,11 @@ void setup_lvds_poweron(void)
 
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
 	reg |= (1 << 10);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);*/
 }
 #endif
 
 #ifdef CONFIG_I2C_MXC
-#define I2C1_SDA_GPIO5_26_BIT_MASK  (1 << 26)
-#define I2C1_SCL_GPIO5_27_BIT_MASK  (1 << 27)
-#define I2C2_SCL_GPIO4_12_BIT_MASK  (1 << 12)
-#define I2C2_SDA_GPIO4_13_BIT_MASK  (1 << 13)
-#define I2C3_SCL_GPIO1_3_BIT_MASK   (1 << 3)
-#define I2C3_SDA_GPIO1_6_BIT_MASK   (1 << 6)
-
 
 static void setup_i2c(unsigned int module_base)
 {
@@ -483,312 +507,6 @@ static void setup_i2c(unsigned int module_base)
 	}
 }
 
-static void mx6q_i2c_gpio_scl_direction(int bus, int output)
-{
-	u32 reg;
-
-	switch (bus) {
-	case 1:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT9__GPIO_5_27);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT9__GPIO_5_27);
-#endif
-		reg = readl(GPIO5_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C1_SCL_GPIO5_27_BIT_MASK;
-		else
-			reg &= ~I2C1_SCL_GPIO5_27_BIT_MASK;
-		writel(reg, GPIO5_BASE_ADDR + GPIO_GDIR);
-		break;
-	case 2:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL3__GPIO_4_12);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_COL3__GPIO_4_12);
-#endif
-		reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C2_SCL_GPIO4_12_BIT_MASK;
-		else
-			reg &= ~I2C2_SCL_GPIO4_12_BIT_MASK;
-		writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
-		break;
-	case 3:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_3__GPIO_1_3);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_3__GPIO_1_3);
-#endif
-		reg = readl(GPIO1_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C3_SCL_GPIO1_3_BIT_MASK;
-		else
-			reg &= I2C3_SCL_GPIO1_3_BIT_MASK;
-		writel(reg, GPIO1_BASE_ADDR + GPIO_GDIR);
-		break;
-	}
-}
-
-/* set 1 to output, sent 0 to input */
-static void mx6q_i2c_gpio_sda_direction(int bus, int output)
-{
-	u32 reg;
-
-	switch (bus) {
-	case 1:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT8__GPIO_5_26);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT8__GPIO_5_26);
-#endif
-		reg = readl(GPIO5_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C1_SDA_GPIO5_26_BIT_MASK;
-		else
-			reg &= ~I2C1_SDA_GPIO5_26_BIT_MASK;
-		writel(reg, GPIO5_BASE_ADDR + GPIO_GDIR);
-		break;
-	case 2:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW3__GPIO_4_13);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_ROW3__GPIO_4_13);
-#endif
-		reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C2_SDA_GPIO4_13_BIT_MASK;
-		else
-			reg &= ~I2C2_SDA_GPIO4_13_BIT_MASK;
-		writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
-	case 3:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_6__GPIO_1_6);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_6__GPIO_1_6);
-#endif
-		reg = readl(GPIO1_BASE_ADDR + GPIO_GDIR);
-		if (output)
-			reg |= I2C3_SDA_GPIO1_6_BIT_MASK;
-		else
-			reg &= ~I2C3_SDA_GPIO1_6_BIT_MASK;
-		writel(reg, GPIO1_BASE_ADDR + GPIO_GDIR);
-	default:
-		break;
-	}
-}
-
-/* set 1 to high 0 to low */
-static void mx6q_i2c_gpio_scl_set_level(int bus, int high)
-{
-	u32 reg;
-
-	switch (bus) {
-	case 1:
-		reg = readl(GPIO5_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C1_SCL_GPIO5_27_BIT_MASK;
-		else
-			reg &= ~I2C1_SCL_GPIO5_27_BIT_MASK;
-		writel(reg, GPIO5_BASE_ADDR + GPIO_DR);
-		break;
-	case 2:
-		reg = readl(GPIO4_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C2_SCL_GPIO4_12_BIT_MASK;
-		else
-			reg &= ~I2C2_SCL_GPIO4_12_BIT_MASK;
-		writel(reg, GPIO4_BASE_ADDR + GPIO_DR);
-		break;
-	case 3:
-		reg = readl(GPIO1_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C3_SCL_GPIO1_3_BIT_MASK;
-		else
-			reg &= ~I2C3_SCL_GPIO1_3_BIT_MASK;
-		writel(reg, GPIO1_BASE_ADDR + GPIO_DR);
-		break;
-	}
-}
-
-/* set 1 to high 0 to low */
-static void mx6q_i2c_gpio_sda_set_level(int bus, int high)
-{
-	u32 reg;
-
-	switch (bus) {
-	case 1:
-		reg = readl(GPIO5_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C1_SDA_GPIO5_26_BIT_MASK;
-		else
-			reg &= ~I2C1_SDA_GPIO5_26_BIT_MASK;
-		writel(reg, GPIO5_BASE_ADDR + GPIO_DR);
-		break;
-	case 2:
-		reg = readl(GPIO4_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C2_SDA_GPIO4_13_BIT_MASK;
-		else
-			reg &= ~I2C2_SDA_GPIO4_13_BIT_MASK;
-		writel(reg, GPIO4_BASE_ADDR + GPIO_DR);
-		break;
-	case 3:
-		reg = readl(GPIO1_BASE_ADDR + GPIO_DR);
-		if (high)
-			reg |= I2C3_SDA_GPIO1_6_BIT_MASK;
-		else
-			reg &= ~I2C3_SDA_GPIO1_6_BIT_MASK;
-		writel(reg, GPIO1_BASE_ADDR + GPIO_DR);
-		break;
-	}
-}
-
-static int mx6q_i2c_gpio_check_sda(int bus)
-{
-	u32 reg;
-	int result = 0;
-
-	switch (bus) {
-	case 1:
-		reg = readl(GPIO5_BASE_ADDR + GPIO_PSR);
-		result = !!(reg & I2C1_SDA_GPIO5_26_BIT_MASK);
-		break;
-	case 2:
-		reg = readl(GPIO4_BASE_ADDR + GPIO_PSR);
-		result = !!(reg & I2C2_SDA_GPIO4_13_BIT_MASK);
-		break;
-	case 3:
-		reg = readl(GPIO1_BASE_ADDR + GPIO_PSR);
-		result = !!(reg & I2C3_SDA_GPIO1_6_BIT_MASK);
-		break;
-	}
-
-	return result;
-}
-
- /* Random reboot cause i2c SDA low issue:
-  * the i2c bus busy because some device pull down the I2C SDA
-  * line. This happens when Host is reading some byte from slave, and
-  * then host is reset/reboot. Since in this case, device is
-  * controlling i2c SDA line, the only thing host can do this give the
-  * clock on SCL and sending NAK, and STOP to finish this
-  * transaction.
-  *
-  * How to fix this issue:
-  * detect if the SDA was low on bus send 8 dummy clock, and 1
-  * clock + NAK, and STOP to finish i2c transaction the pending
-  * transfer.
-  */
-int i2c_bus_recovery(void)
-{
-	int i, bus, result = 0;
-
-	for (bus = 1; bus <= 3; bus++) {
-		mx6q_i2c_gpio_sda_direction(bus, 0);
-
-		if (mx6q_i2c_gpio_check_sda(bus) == 0) {
-			printf("i2c: I2C%d SDA is low, start i2c recovery...\n", bus);
-			mx6q_i2c_gpio_scl_direction(bus, 1);
-			mx6q_i2c_gpio_scl_set_level(bus, 1);
-			__udelay(10000);
-
-			for (i = 0; i < 9; i++) {
-				mx6q_i2c_gpio_scl_set_level(bus, 1);
-				__udelay(5);
-				mx6q_i2c_gpio_scl_set_level(bus, 0);
-				__udelay(5);
-			}
-
-			/* 9th clock here, the slave should already
-			   release the SDA, we can set SDA as high to
-			   a NAK.*/
-			mx6q_i2c_gpio_sda_direction(bus, 1);
-			mx6q_i2c_gpio_sda_set_level(bus, 1);
-			__udelay(1); /* Pull up SDA first */
-			mx6q_i2c_gpio_scl_set_level(bus, 1);
-			__udelay(5); /* plus pervious 1 us */
-			mx6q_i2c_gpio_scl_set_level(bus, 0);
-			__udelay(5);
-			mx6q_i2c_gpio_sda_set_level(bus, 0);
-			__udelay(5);
-			mx6q_i2c_gpio_scl_set_level(bus, 1);
-			__udelay(5);
-			/* Here: SCL is high, and SDA from low to high, it's a
-			 * stop condition */
-			mx6q_i2c_gpio_sda_set_level(bus, 1);
-			__udelay(5);
-
-			mx6q_i2c_gpio_sda_direction(bus, 0);
-			if (mx6q_i2c_gpio_check_sda(bus) == 1)
-				printf("I2C%d Recovery success\n", bus);
-			else {
-				printf("I2C%d Recovery failed, I2C1 SDA still low!!!\n", bus);
-				result |= 1 << bus;
-			}
-		}
-
-		/* configure back to i2c */
-		switch (bus) {
-		case 1:
-			setup_i2c(I2C1_BASE_ADDR);
-			break;
-		case 2:
-			setup_i2c(I2C2_BASE_ADDR);
-			break;
-		case 3:
-			setup_i2c(I2C3_BASE_ADDR);
-			break;
-		}
-	}
-
-	return result;
-}
-
-
-static int setup_pmic_voltages(void)
-{
-	unsigned char value, rev_id = 0 ;
-	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
-	if (!i2c_probe(0x8)) {
-		if (i2c_read(0x8, 0, 1, &value, 1)) {
-			printf("Read device ID error!\n");
-			return -1;
-		}
-		if (i2c_read(0x8, 3, 1, &rev_id, 1)) {
-			printf("Read Rev ID error!\n");
-			return -1;
-		}
-		printf("Found PFUZE100! deviceid=%x,revid=%x\n", value, rev_id);
-		/*For camera streaks issue,swap VGEN5 and VGEN3 to power camera.
-		*sperate VDDHIGH_IN and camera 2.8V power supply, after switch:
-		*VGEN5 for VDDHIGH_IN and increase to 3V to align with datasheet
-		*VGEN3 for camera 2.8V power supply
-		*/
-		/*increase VGEN3 from 2.5 to 2.8V*/
-		if (i2c_read(0x8, 0x6e, 1, &value, 1)) {
-			printf("Read VGEN3 error!\n");
-			return -1;
-		}
-		value &= ~0xf;
-		value |= 0xa;
-		if (i2c_write(0x8, 0x6e, 1, &value, 1)) {
-			printf("Set VGEN3 error!\n");
-			return -1;
-		}
-		/*increase VGEN5 from 2.8 to 3V*/
-		if (i2c_read(0x8, 0x70, 1, &value, 1)) {
-			printf("Read VGEN5 error!\n");
-			return -1;
-		}
-		value &= ~0xf;
-		value |= 0xc;
-		if (i2c_write(0x8, 0x70, 1, &value, 1)) {
-			printf("Set VGEN5 error!\n");
-			return -1;
-		}
-	}
-}
 #endif
 
 #ifdef CONFIG_IMX_ECSPI
@@ -833,26 +551,28 @@ void spi_io_init(struct imx_spi_dev_t *dev)
 
 #if defined CONFIG_MX6Q
 		/* SCLK */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL0__ECSPI1_SCLK);
+		mxc_iomux_v3_setup_pad(MX6Q_PAD_EIM_D16__ECSPI1_SCLK);
 
 		/* MISO */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL1__ECSPI1_MISO);
+		mxc_iomux_v3_setup_pad(MX6Q_PAD_EIM_D17__ECSPI1_MISO);
 
 		/* MOSI */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW0__ECSPI1_MOSI);
+		mxc_iomux_v3_setup_pad(MX6Q_PAD_EIM_D18__ECSPI1_MOSI);
 
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW1__ECSPI1_SS0);
+	if (dev->ss == 1)
+		mxc_iomux_v3_setup_pad(MX6Q_PAD_EIM_D19__ECSPI1_SS1);
 #elif defined CONFIG_MX6DL
 		/* SCLK */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_COL0__ECSPI1_SCLK);
+		mxc_iomux_v3_setup_pad(MX6DL_PAD_EIM_D16__ECSPI1_SCLK);
 
 		/* MISO */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_COL1__ECSPI1_MISO);
+		mxc_iomux_v3_setup_pad(MX6DL_PAD_EIM_D17__ECSPI1_MISO);
 
 		/* MOSI */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_ROW0__ECSPI1_MOSI);
+		mxc_iomux_v3_setup_pad(MX6DL_PAD_EIM_D18__ECSPI1_MOSI);
 
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_ROW1__ECSPI1_SS0);
+	if (dev->ss == 1)
+		mxc_iomux_v3_setup_pad(MX6DL_PAD_EIM_D19__ECSPI1_SS1);
 #endif
 		break;
 	case ECSPI2_BASE_ADDR:
@@ -933,23 +653,13 @@ int board_eth_init(bd_t *bis)
  * that is required for UHS-I mode of operation.
  * Last element in struct is used to indicate 1.8V support.
  */
-struct fsl_esdhc_cfg usdhc_cfg[4] = {
-	{USDHC1_BASE_ADDR, 1, 1, 1, 0},
+struct fsl_esdhc_cfg usdhc_cfg[3] = {
 	{USDHC2_BASE_ADDR, 1, 1, 1, 0},
 	{USDHC3_BASE_ADDR, 1, 1, 1, 0},
 	{USDHC4_BASE_ADDR, 1, 1, 1, 0},
 };
 
 #if defined CONFIG_MX6Q
-iomux_v3_cfg_t usdhc1_pads[] = {
-	MX6Q_PAD_SD1_CLK__USDHC1_CLK,
-	MX6Q_PAD_SD1_CMD__USDHC1_CMD,
-	MX6Q_PAD_SD1_DAT0__USDHC1_DAT0,
-	MX6Q_PAD_SD1_DAT1__USDHC1_DAT1,
-	MX6Q_PAD_SD1_DAT2__USDHC1_DAT2,
-	MX6Q_PAD_SD1_DAT3__USDHC1_DAT3,
-};
-
 iomux_v3_cfg_t usdhc2_pads[] = {
 	MX6Q_PAD_SD2_CLK__USDHC2_CLK,
 	MX6Q_PAD_SD2_CMD__USDHC2_CMD,
@@ -966,10 +676,6 @@ iomux_v3_cfg_t usdhc3_pads[] = {
 	MX6Q_PAD_SD3_DAT1__USDHC3_DAT1,
 	MX6Q_PAD_SD3_DAT2__USDHC3_DAT2,
 	MX6Q_PAD_SD3_DAT3__USDHC3_DAT3,
-	MX6Q_PAD_SD3_DAT4__USDHC3_DAT4,
-	MX6Q_PAD_SD3_DAT5__USDHC3_DAT5,
-	MX6Q_PAD_SD3_DAT6__USDHC3_DAT6,
-	MX6Q_PAD_SD3_DAT7__USDHC3_DAT7,
 };
 
 iomux_v3_cfg_t usdhc4_pads[] = {
@@ -984,16 +690,8 @@ iomux_v3_cfg_t usdhc4_pads[] = {
 	MX6Q_PAD_SD4_DAT6__USDHC4_DAT6,
 	MX6Q_PAD_SD4_DAT7__USDHC4_DAT7,
 };
-#elif defined CONFIG_MX6DL
-iomux_v3_cfg_t usdhc1_pads[] = {
-	MX6DL_PAD_SD1_CLK__USDHC1_CLK,
-	MX6DL_PAD_SD1_CMD__USDHC1_CMD,
-	MX6DL_PAD_SD1_DAT0__USDHC1_DAT0,
-	MX6DL_PAD_SD1_DAT1__USDHC1_DAT1,
-	MX6DL_PAD_SD1_DAT2__USDHC1_DAT2,
-	MX6DL_PAD_SD1_DAT3__USDHC1_DAT3,
-};
 
+#elif defined CONFIG_MX6DL
 iomux_v3_cfg_t usdhc2_pads[] = {
 	MX6DL_PAD_SD2_CLK__USDHC2_CLK,
 	MX6DL_PAD_SD2_CMD__USDHC2_CMD,
@@ -1010,10 +708,6 @@ iomux_v3_cfg_t usdhc3_pads[] = {
 	MX6DL_PAD_SD3_DAT1__USDHC3_DAT1,
 	MX6DL_PAD_SD3_DAT2__USDHC3_DAT2,
 	MX6DL_PAD_SD3_DAT3__USDHC3_DAT3,
-	MX6DL_PAD_SD3_DAT4__USDHC3_DAT4,
-	MX6DL_PAD_SD3_DAT5__USDHC3_DAT5,
-	MX6DL_PAD_SD3_DAT6__USDHC3_DAT6,
-	MX6DL_PAD_SD3_DAT7__USDHC3_DAT7,
 };
 
 iomux_v3_cfg_t usdhc4_pads[] = {
@@ -1028,6 +722,7 @@ iomux_v3_cfg_t usdhc4_pads[] = {
 	MX6DL_PAD_SD4_DAT6__USDHC4_DAT6,
 	MX6DL_PAD_SD4_DAT7__USDHC4_DAT7,
 };
+
 #endif
 
 int usdhc_gpio_init(bd_t *bis)
@@ -1039,21 +734,16 @@ int usdhc_gpio_init(bd_t *bis)
 		++index) {
 		switch (index) {
 		case 0:
-			mxc_iomux_v3_setup_multiple_pads(usdhc1_pads,
-				sizeof(usdhc1_pads) /
-				sizeof(usdhc1_pads[0]));
-			break;
-		case 1:
 			mxc_iomux_v3_setup_multiple_pads(usdhc2_pads,
 				sizeof(usdhc2_pads) /
 				sizeof(usdhc2_pads[0]));
 			break;
-		case 2:
+		case 1:
 			mxc_iomux_v3_setup_multiple_pads(usdhc3_pads,
 				sizeof(usdhc3_pads) /
 				sizeof(usdhc3_pads[0]));
 			break;
-		case 3:
+		case 2:
 			mxc_iomux_v3_setup_multiple_pads(usdhc4_pads,
 				sizeof(usdhc4_pads) /
 				sizeof(usdhc4_pads[0]));
@@ -1434,16 +1124,16 @@ void lcd_enable(void)
 	/* PWM backlight */
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_SD1_DAT3__PWM1_PWMO);
 	/* LVDS panel CABC_EN0 */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS2__GPIO_6_15);
+//	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS2__GPIO_6_15);
 	/* LVDS panel CABC_EN1 */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
+//	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
 #elif defined CONFIG_MX6DL
 	/* PWM backlight */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_SD1_DAT3__PWM1_PWMO);
 	/* LVDS panel CABC_EN0 */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS2__GPIO_6_15);
+//	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS2__GPIO_6_15);
 	/* LVDS panel CABC_EN1 */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
+//	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
 	/*
 	 * Set LVDS panel CABC_EN0 to low to disable
@@ -1452,26 +1142,26 @@ void lcd_enable(void)
 	 * simply disable it to get rid of annoying unstable
 	 * backlight phenomena.
 	 */
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+/*	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
 
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
 	reg &= ~(1 << 15);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-
+*/
 	/*
 	 * Set LVDS panel CABC_EN1 to low to disable
 	 * CABC function.
 	 */
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+/*	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
 
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
 	reg &= ~(1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-
+*/
 	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk. */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
 	reg &= ~0xC033;
@@ -1723,12 +1413,13 @@ int board_init(void)
 	gd->bd->bi_boot_params = PHYS_SDRAM_1 + 0x100;
 
 	setup_uart();
-	if (cpu_is_mx6q())
+	#ifdef CONFIG_DWC_AHSATA
 		setup_sata();
+        #endif
 
 #ifdef CONFIG_VIDEO_MX5
 	/* Enable lvds power */
-	setup_lvds_poweron();
+//	setup_lvds_poweron();
 
 	panel_info_init();
 
@@ -1738,8 +1429,12 @@ int board_init(void)
 #endif
 #endif
 
-#ifdef CONFIG_NAND_GPMI
-	setup_gpmi_nand();
+//#ifdef CONFIG_NAND_GPMI
+//	setup_gpmi_nand();
+//#endif
+
+#if defined(CONFIG_ENET_RMII) && !defined(CONFIG_DWC_AHSATA)
+	setup_fec();
 #endif
 
 #ifdef CONFIG_MXC_EPDC
@@ -1760,7 +1455,6 @@ int check_recovery_cmd_file(void)
 
 	/* Check Recovery Combo Button press or not. */
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
-
 	gpio_direction_input(GPIO_VOL_DN_KEY);
 
 	if (gpio_get_value(GPIO_VOL_DN_KEY) == 0) { /* VOL_DN key is low assert */
@@ -1796,10 +1490,6 @@ int board_late_init(void)
 #endif
 #ifdef CONFIG_I2C_MXC
 	setup_i2c(CONFIG_SYS_I2C_PORT);
-	i2c_bus_recovery();
-	ret = setup_pmic_voltages();
-	if (ret)
-		return -1;
 #endif
 	return 0;
 }
@@ -1850,48 +1540,44 @@ int mx6_rgmii_rework(char *devname, int phy_addr)
 
 #if defined CONFIG_MX6Q
 iomux_v3_cfg_t enet_pads[] = {
+#ifdef CONFIG_ENET_RMII
+	/* ENET (10/100Mbps enet interface)*/
 	MX6Q_PAD_ENET_MDIO__ENET_MDIO,
 	MX6Q_PAD_ENET_MDC__ENET_MDC,
-	MX6Q_PAD_RGMII_TXC__ENET_RGMII_TXC,
-	MX6Q_PAD_RGMII_TD0__ENET_RGMII_TD0,
-	MX6Q_PAD_RGMII_TD1__ENET_RGMII_TD1,
-	MX6Q_PAD_RGMII_TD2__ENET_RGMII_TD2,
-	MX6Q_PAD_RGMII_TD3__ENET_RGMII_TD3,
-	MX6Q_PAD_RGMII_TX_CTL__ENET_RGMII_TX_CTL,
-	MX6Q_PAD_ENET_REF_CLK__ENET_TX_CLK,
-	MX6Q_PAD_RGMII_RXC__ENET_RGMII_RXC,
-	MX6Q_PAD_RGMII_RD0__ENET_RGMII_RD0,
-	MX6Q_PAD_RGMII_RD1__ENET_RGMII_RD1,
-	MX6Q_PAD_RGMII_RD2__ENET_RGMII_RD2,
-	MX6Q_PAD_RGMII_RD3__ENET_RGMII_RD3,
-	MX6Q_PAD_RGMII_RX_CTL__ENET_RGMII_RX_CTL,
-	MX6Q_PAD_GPIO_0__CCM_CLKO,
-	MX6Q_PAD_GPIO_3__CCM_CLKO2,
+	MX6Q_PAD_ENET_CRS_DV__ENET_RX_EN,
+	MX6Q_PAD_ENET_RX_ER__ENET_RX_ER,
+	MX6Q_PAD_ENET_TX_EN__ENET_TX_EN,
+	MX6Q_PAD_ENET_RXD0__ENET_RDATA_0,
+	MX6Q_PAD_ENET_RXD1__ENET_RDATA_1,
+	MX6Q_PAD_ENET_TXD0__ENET_TDATA_0,
+	MX6Q_PAD_ENET_TXD1__ENET_TDATA_1,	
+	MX6Q_PAD_GPIO_16__ENET_ANATOP_ETHERNET_REF_OUT,
+	MX6Q_PAD_ENET_REF_CLK__GPIO_1_23, /* reset phy */
+#endif
 };
 #elif defined CONFIG_MX6DL
 iomux_v3_cfg_t enet_pads[] = {
+#ifdef CONFIG_ENET_RMII
+	/* ENET (10/100Mbps enet interface)*/
 	MX6DL_PAD_ENET_MDIO__ENET_MDIO,
 	MX6DL_PAD_ENET_MDC__ENET_MDC,
-	MX6DL_PAD_RGMII_TXC__ENET_RGMII_TXC,
-	MX6DL_PAD_RGMII_TD0__ENET_RGMII_TD0,
-	MX6DL_PAD_RGMII_TD1__ENET_RGMII_TD1,
-	MX6DL_PAD_RGMII_TD2__ENET_RGMII_TD2,
-	MX6DL_PAD_RGMII_TD3__ENET_RGMII_TD3,
-	MX6DL_PAD_RGMII_TX_CTL__ENET_RGMII_TX_CTL,
-	MX6DL_PAD_ENET_REF_CLK__ENET_TX_CLK,
-	MX6DL_PAD_RGMII_RXC__ENET_RGMII_RXC,
-	MX6DL_PAD_RGMII_RD0__ENET_RGMII_RD0,
-	MX6DL_PAD_RGMII_RD1__ENET_RGMII_RD1,
-	MX6DL_PAD_RGMII_RD2__ENET_RGMII_RD2,
-	MX6DL_PAD_RGMII_RD3__ENET_RGMII_RD3,
-	MX6DL_PAD_RGMII_RX_CTL__ENET_RGMII_RX_CTL,
-	MX6DL_PAD_GPIO_0__CCM_CLKO,
+	MX6DL_PAD_ENET_CRS_DV__ENET_RX_EN,
+	MX6DL_PAD_ENET_RX_ER__ENET_RX_ER,
+	MX6DL_PAD_ENET_TX_EN__ENET_TX_EN,
+	MX6DL_PAD_ENET_RXD0__ENET_RDATA_0,
+	MX6DL_PAD_ENET_RXD1__ENET_RDATA_1,
+	MX6DL_PAD_ENET_TXD0__ENET_TDATA_0,
+	MX6DL_PAD_ENET_TXD1__ENET_TDATA_1,	
+	MX6DL_PAD_GPIO_16__ENET_ANATOP_ETHERNET_REF_OUT,
+	MX6DL_PAD_ENET_REF_CLK__GPIO_1_23, /* reset phy */
+#endif
 };
 #endif
 
 void enet_board_init(void)
 {
 	unsigned int reg;
+#ifndef CONFIG_ENET_RMII
 #if defined CONFIG_MX6Q
 	iomux_v3_cfg_t enet_reset =
 			(_MX6Q_PAD_ENET_CRS_DV__GPIO_1_25 &
@@ -1903,11 +1589,28 @@ void enet_board_init(void)
 			~MUX_PAD_CTRL_MASK)           |
 			 MUX_PAD_CTRL(0x88);
 #endif
-
+#endif
 	mxc_iomux_v3_setup_multiple_pads(enet_pads,
 			ARRAY_SIZE(enet_pads));
+#ifndef CONFIG_ENET_RMII
 	mxc_iomux_v3_setup_pad(enet_reset);
+#endif
 
+#ifdef CONFIG_ENET_RMII
+	gpio_direction_output(FEC_PHY_RESET, 0);
+	udelay(5000);
+	gpio_set_value(FEC_PHY_RESET, 1);
+	/* Set GPIO_16 output for RMII reference clock
+	 * For MX6 GPR1 bit21 meaning:
+	 * Bit21:       1 - GPIO_16 pad output
+	 *              0 - GPIO_16 pad input
+	 * Use interal clock, set GPIO_16 output, and
+	 * then force input(set SION)
+	 * Use exteral clock, set GPIO_16 input, and
+	 * don't set SION bit.
+	 */
+	mxc_iomux_set_gpr_register(1, 21, 1, 1);
+#else
 	/* phy reset: gpio1-25 */
 	reg = readl(GPIO1_BASE_ADDR + 0x0);
 	reg &= ~0x2000000;
@@ -1922,6 +1625,7 @@ void enet_board_init(void)
 	reg = readl(GPIO1_BASE_ADDR + 0x0);
 	reg |= 0x2000000;
 	writel(reg, GPIO1_BASE_ADDR + 0x0);
+#endif
 }
 #endif
 
@@ -1995,9 +1699,9 @@ int checkboard(void)
 
 void udc_pins_setting(void)
 {
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_RX_ER__ANATOP_USBOTG_ID));
+mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_1__USBOTG_ID));
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D22__GPIO_3_22));
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_TXD1__GPIO_1_29));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_SD3_DAT5__GPIO_7_0));
 
 	/* USB_OTG_PWR = 0 */
 	gpio_direction_output(USB_OTG_PWR, 0);
@@ -2005,6 +1709,7 @@ void udc_pins_setting(void)
 	gpio_direction_output(USB_H1_POWER, 1);
 
 	mxc_iomux_set_gpr_register(1, 13, 1, 0);
+
 
 }
 #endif
