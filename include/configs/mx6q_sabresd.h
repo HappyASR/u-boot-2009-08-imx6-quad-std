@@ -112,6 +112,23 @@
 
 #define CONFIG_PRIME	"FEC0"
 
+#define CONFIG_ENET_RMII
+#define CONFIG_FEC0_IOBASE	ENET_BASE_ADDR
+#define CONFIG_FEC0_PINMUX	-1
+#define CONFIG_FEC0_MIIBASE	-1
+#define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
+#define CONFIG_MXC_FEC
+#define CONFIG_FEC0_PHY_ADDR		0xFF
+#define CONFIG_DISCOVER_PHY
+#define CONFIG_ETH_PRIME
+#define CONFIG_RMII
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_PING
+#define CONFIG_IPADDR			10.0.161.236
+#define CONFIG_SERVERIP			10.0.161.136
+//#define CONFIG_NETMASK			255.255.255.0
+
 #define CONFIG_LOADADDR		0x10800000	/* loadaddr env var */
 #define CONFIG_RD_LOADADDR	(0x1300000)
 
@@ -143,7 +160,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
-#define CONFIG_SYS_PROMPT		"MX6Q SABRESD U-Boot > "
+#define CONFIG_SYS_PROMPT		"root # "
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size */
 /* Print Buffer Size */
@@ -165,23 +182,6 @@
 #ifdef	CONFIG_SYS_HUSH_PARSER
 #define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #endif
-
-#define CONFIG_ENET_RMII
-#define CONFIG_FEC0_IOBASE	ENET_BASE_ADDR
-#define CONFIG_FEC0_PINMUX	-1
-#define CONFIG_FEC0_MIIBASE	-1
-#define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
-#define CONFIG_MXC_FEC
-#define CONFIG_FEC0_PHY_ADDR		0xFF
-#define CONFIG_DISCOVER_PHY
-#define CONFIG_ETH_PRIME
-#define CONFIG_RMII
-#define CONFIG_CMD_MII
-#define CONFIG_CMD_DHCP
-#define CONFIG_CMD_PING
-#define CONFIG_IPADDR			192.168.2.103
-#define CONFIG_SERVERIP			192.168.2.105
-//#define CONFIG_NETMASK			255.255.255.0
 
 /*
  * OCOTP Configs

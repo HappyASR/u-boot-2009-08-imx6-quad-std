@@ -484,27 +484,27 @@ void mxc_dump_clocks(void)
 {
 	u32 freq;
 	freq = __decode_pll(CPU_PLL1, CONFIG_MX6_HCLK_FREQ);
-	printf("mx6q pll1: %dMHz\n", freq / SZ_DEC_1M);
+	printf("mx6q pll1: \t%dMHz\n", freq / SZ_DEC_1M);
 	freq = __decode_pll(BUS_PLL2, CONFIG_MX6_HCLK_FREQ);
-	printf("mx6q pll2: %dMHz\n", freq / SZ_DEC_1M);
+	printf("mx6q pll2: \t%dMHz\n", freq / SZ_DEC_1M);
 	freq = __decode_pll(USBOTG_PLL3, CONFIG_MX6_HCLK_FREQ);
-	printf("mx6q pll3: %dMHz\n", freq / SZ_DEC_1M);
+	printf("mx6q pll3: \t%dMHz\n", freq / SZ_DEC_1M);
 	freq = __decode_pll(ENET_PLL8, CONFIG_MX6_HCLK_FREQ);
-	printf("mx6q pll8: %dMHz\n", freq / SZ_DEC_1M);
-	printf("ipg clock     : %dHz\n", mxc_get_clock(MXC_IPG_CLK));
-	printf("ipg per clock : %dHz\n", mxc_get_clock(MXC_IPG_PERCLK));
-	printf("uart clock    : %dHz\n", mxc_get_clock(MXC_UART_CLK));
-	printf("cspi clock    : %dHz\n", mxc_get_clock(MXC_CSPI_CLK));
-	printf("ahb clock     : %dHz\n", mxc_get_clock(MXC_AHB_CLK));
-	printf("axi clock   : %dHz\n", mxc_get_clock(MXC_AXI_CLK));
+	printf("mx6q pll8: \t%dMHz\n", freq / SZ_DEC_1M);
+	printf("ipg clock: \t%dHz\n", mxc_get_clock(MXC_IPG_CLK));
+	printf("ipg per clock: \t%dHz\n", mxc_get_clock(MXC_IPG_PERCLK));
+	printf("uart clock: \t%dHz\n", mxc_get_clock(MXC_UART_CLK));
+	printf("cspi clock: \t%dHz\n", mxc_get_clock(MXC_CSPI_CLK));
+	printf("ahb clock: \t%dHz\n", mxc_get_clock(MXC_AHB_CLK));
+	printf("axi clock: \t%dHz\n", mxc_get_clock(MXC_AXI_CLK));
 	printf("emi_slow clock: %dHz\n", mxc_get_clock(MXC_EMI_SLOW_CLK));
-	printf("ddr clock     : %dHz\n", mxc_get_clock(MXC_DDR_CLK));
-	printf("usdhc1 clock  : %dHz\n", mxc_get_clock(MXC_ESDHC_CLK));
-	printf("usdhc2 clock  : %dHz\n", mxc_get_clock(MXC_ESDHC2_CLK));
-	printf("usdhc3 clock  : %dHz\n", mxc_get_clock(MXC_ESDHC3_CLK));
-	printf("usdhc4 clock  : %dHz\n", mxc_get_clock(MXC_ESDHC4_CLK));
+	printf("ddr clock: \t%dHz\n", mxc_get_clock(MXC_DDR_CLK));
+	printf("usdhc1 clock: \t%dHz\n", mxc_get_clock(MXC_ESDHC_CLK));
+	printf("usdhc2 clock: \t%dHz\n", mxc_get_clock(MXC_ESDHC2_CLK));
+	printf("usdhc3 clock: \t%dHz\n", mxc_get_clock(MXC_ESDHC3_CLK));
+	printf("usdhc4 clock: \t%dHz\n", mxc_get_clock(MXC_ESDHC4_CLK));
 #ifndef CONFIG_MX6SL
-	printf("nfc clock     : %dHz\n", mxc_get_clock(MXC_NFC_CLK));
+	printf("nfc clock: \t%dHz\n", mxc_get_clock(MXC_NFC_CLK));
 #endif
 }
 

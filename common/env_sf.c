@@ -140,7 +140,8 @@ err_read:
 	env_flash = NULL;
 err_probe:
 err_crc:
-	puts("*** Warning - bad CRC, using default environment\n\n");
+	//puts("*** Warning - bad CRC, using default environment\n\n");
+	puts("");
 
 	set_default_env();
 }
