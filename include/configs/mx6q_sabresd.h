@@ -138,7 +138,7 @@
 		"ethprime=FEC0\0"					\
 		"uboot=u-boot.bin\0"			\
 		"kernel=uImage\0"				\
-		"nfsroot=/source-workspace/my-interesting-board/smart210-STD/smart210-rootfs\0"				\
+		"nfsroot=/source-workspace/my-imx6-quad-board/mxc-rootfs\0"				\
 		"bootargs_base=setenv bootargs console=ttymxc0,115200\0"\
 		"bootargs_nfs=setenv bootargs ${bootargs} root=/dev/nfs "\
 			"nfsroot=${serverip}:${nfsroot},v3,tcp\0"\
