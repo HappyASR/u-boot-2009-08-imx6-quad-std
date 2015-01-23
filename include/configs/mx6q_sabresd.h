@@ -141,7 +141,7 @@
 		"nfsroot=/source-workspace/my-imx6-quad-board/mxc-rootfs\0"				\
 		"bootargs_base=setenv bootargs console=ttymxc0,115200\0"\
 		"bootargs_nfs=setenv bootargs ${bootargs} root=/dev/nfs "\
-			"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0"\
+			"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp video=mxcfb0:dev=ldb,LDB-XGA,if=RGB666\0"\
 		"bootcmd_net=run bootargs_base bootargs_nfs; "		\
 			"tftpboot ${loadaddr} ${kernel}; bootm\0"	\
 		"bootargs_mmc=setenv bootargs ${bootargs} ip=dhcp "     \
